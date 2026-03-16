@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRM HUB — Plotting Engage</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy-deep: #0a1628;
+    --navy: #0d2057;
+    --navy-mid: #1a3a7a;
+    --navy-light: #1e4fa0;
+    --blue-card: #162d6e;
+    --blue-input: #0f214d;
+    --red: #e8192c;
+    --red-dark: #c01020;
+    --green: #2ecc5a;
+    --white: #ffffff;
+    --silver: #b0bcd0;
+    --purple: #7b2ff7;
+    --text-muted: #7a90b8;
+    --radius: 14px;
+    --radius-sm: 8px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Barlow', sans-serif;
+    background: var(--navy-deep);
+    color: var(--white);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ===== SPLASH ===== */
+  #splash {
+    position: fixed; inset: 0; z-index: 1000;
+    background: radial-gradient(ellipse at 30% 40%, #1a3a7a 0%, #0a1628 60%, #060e1f 100%);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 32px;
+    transition: opacity 0.6s ease, visibility 0.6s;
+  }
+  #splash.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
+  .logo-box {
+    border: 4px solid var(--red);
+    padding: 16px 20px;
+    position: relative;
+    animation: logoReveal 0.8s ease forwards;
+    opacity: 0;
+  }
+  @keyframes logoReveal {
+    from { opacity: 0; transform: scale(0.8) rotate(-2deg); }
+    to { opacity: 1; transform: scale(1) rotate(0deg); }
+  }
+  .logo-box::before {
+    content: '';
+    position: absolute; top: -4px; right: -4px;
+    width: 20px; height: 20px;
+    background: var(--navy-deep);
+  }
+  .logo-text {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 64px; font-weight: 800;
+    color: var(--red);
+    line-height: 0.9;
+    letter-spacing: -2px;
+  }
+  .logo-subtitle {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px; font-weight: 400;
+    color: var(--silver);
+    line-height: 1.3;
+    margin-top: 16px;
+    animation: fadeUp 0.8s 0.3s ease forwards;
+    opacity: 0;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ===== APP SHELL ===== */
+  #app {
+    display: none;
+    min-height: 100vh;
+    background: radial-gradient(ellipse at 20% 0%, #1a3a7a 0%, #0a1628 50%);
+  }
+  #app.visible { display: flex; flex-direction: column; }
+
+  /* ===== HEADER ===== */
+  .app-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 24px;
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,22,40,0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .header-logo { display: flex; align-items: center; gap: 12px; }
+  .header-logo-box {
+    border: 2.5px solid var(--red);
+    padding: 5px 7px;
+    position: relative;
+  }
+  .header-logo-box::before {
+    content: '';
+    position: absolute; top: -2.5px; right: -2.5px;
+    width: 8px; height: 8px;
+    background: var(--navy-deep);
+  }
+  .header-logo-text {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 26px; font-weight: 800;
+    color: var(--red); line-height: 0.9;
+  }
+  .header-logo-sub {
+    font-size: 10px; color: var(--silver); line-height: 1.3;
+    max-width: 120px;
+  }
+  .header-user {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    cursor: pointer;
+  }
+  .avatar {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: var(--navy-mid);
+    border: 2px solid var(--navy-light);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; overflow: hidden;
+  }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .user-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700; font-size: 16px;
+  }
+  .user-dots { display: flex; gap: 4px; }
+  .user-dot {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid var(--purple);
+    background: transparent;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; color: var(--purple); cursor: pointer;
+    transition: background 0.2s;
+  }
+  .user-dot:hover { background: var(--purple); color: white; }
+  .users-label { font-size: 11px; color: var(--text-muted); }
+
+  /* ===== MAIN CONTENT ===== */
+  .main { flex: 1; padding: 24px; max-width: 600px; margin: 0 auto; width: 100%; }
+
+  /* ===== PAGES ===== */
+  .page { display: none; animation: pageIn 0.35s ease; }
+  .page.active { display: block; }
+  @keyframes pageIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ===== PAGE HEADER ===== */
+  .page-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 38px; font-weight: 800;
+    margin-bottom: 24px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .back-btn {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1.5px solid var(--navy-light);
+    border-radius: 8px; cursor: pointer;
+    transition: background 0.2s; font-size: 18px;
+  }
+  .back-btn:hover { background: var(--navy-mid); }
+
+  /* ===== PROJECTS GRID ===== */
+  .projects-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+    margin-bottom: 32px;
+  }
+  .project-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    aspect-ratio: 1;
+    display: flex; align-items: flex-end; justify-content: flex-end;
+    padding: 8px; cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative; overflow: hidden;
+  }
+  .project-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.4); }
+  .project-card.has-project {
+    background: linear-gradient(135deg, #f0f4ff 0%, #e0e8ff 100%);
+  }
+  .project-card .card-logo {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    padding: 12px;
+  }
+  .project-card .card-logo img { max-width: 80%; max-height: 80%; object-fit: contain; }
+  .add-btn {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--purple);
+    color: white; font-size: 18px; font-weight: 300;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 1;
+    transition: transform 0.2s, background 0.2s;
+    flex-shrink: 0;
+  }
+  .add-btn:hover { transform: scale(1.15); background: #6020e0; }
+
+  /* ===== STANDS VIEW ===== */
+  .plant-header {
+    background: var(--blue-card);
+    border-radius: var(--radius);
+    padding: 16px; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .plant-img {
+    width: 60px; height: 60px; border-radius: 10px;
+    background: white;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .plant-img img { width: 50px; height: 50px; object-fit: contain; }
+  .plant-name { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 700; }
+
+  .pavillion-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px; font-weight: 700;
+    text-align: center; margin-bottom: 14px;
+  }
+
+  /* ===== FLOOR PLAN GRID ===== */
+  .floor-plan-wrapper {
+    background: rgba(255,255,255,0.04);
+    border-radius: var(--radius);
+    padding: 12px;
+    margin-bottom: 20px;
+    overflow: auto;
+  }
+  .floor-plan {
+    display: grid;
+    gap: 2px;
+    width: 100%;
+    position: relative;
+  }
+  .floor-cell {
+    border-radius: 3px;
+    aspect-ratio: 1;
+    transition: all 0.15s ease;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px; font-weight: 700;
+    cursor: pointer;
+    position: relative;
+  }
+  .floor-cell.empty { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); }
+  .floor-cell.corridor { background: rgba(255,255,255,0.85); }
+  .floor-cell.stand-free { background: var(--green); color: white; }
+  .floor-cell.stand-sold { background: var(--red); color: white; }
+  .floor-cell.stand-free:hover { filter: brightness(1.15); transform: scale(1.05); z-index: 2; }
+  .floor-cell.stand-sold:hover { filter: brightness(1.1); transform: scale(1.05); z-index: 2; }
+  .floor-cell.stand-free.selected { box-shadow: 0 0 0 3px white; z-index: 3; }
+  .floor-cell.stand-sold.selected { box-shadow: 0 0 0 3px white; z-index: 3; }
+
+  .tooltip {
+    position: absolute; bottom: calc(100% + 8px); left: 50%;
+    transform: translateX(-50%);
+    background: rgba(10,22,40,0.95);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px; padding: 10px 14px;
+    font-size: 13px; white-space: nowrap; z-index: 10;
+    pointer-events: none;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .tooltip .tip-num { font-weight: 800; font-size: 16px; margin-bottom: 2px; }
+  .tooltip .tip-co { color: var(--silver); font-size: 12px; }
+
+  /* ===== STANDS COUNTER ===== */
+  .stands-counter {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    margin-bottom: 20px;
+  }
+  .counter-card {
+    border-radius: var(--radius-sm);
+    padding: 16px; text-align: center;
+  }
+  .counter-card.free { background: var(--green); }
+  .counter-card.sold { background: var(--red); }
+  .counter-num {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 40px; font-weight: 800;
+  }
+  .counter-label { font-size: 12px; font-weight: 600; letter-spacing: 1px; margin-top: 2px; }
+
+  .stands-list {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-bottom: 20px;
+  }
+  .stand-chip {
+    background: var(--blue-card);
+    border-radius: 6px; padding: 6px 10px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: background 0.2s;
+  }
+  .stand-chip:hover { background: var(--navy-light); }
+  .stand-chip.sold { background: var(--red); }
+
+  /* ===== ACTION BUTTONS ===== */
+  .btn {
+    width: 100%; padding: 16px;
+    border-radius: 30px; border: none;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px; font-weight: 700; letter-spacing: 1px;
+    cursor: pointer; transition: all 0.2s;
+    margin-bottom: 10px;
+  }
+  .btn-navy { background: var(--navy-mid); color: white; }
+  .btn-navy:hover { background: var(--navy-light); transform: translateY(-1px); }
+  .btn-red { background: var(--red); color: white; }
+  .btn-red:hover { background: var(--red-dark); transform: translateY(-1px); }
+  .btn-green { background: var(--green); color: white; }
+  .btn-green:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+  /* ===== FORMS ===== */
+  .form-field {
+    background: var(--blue-input);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 10px;
+  }
+  .form-field .field-icon {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+  }
+  .form-field input {
+    background: transparent; border: none; outline: none;
+    color: white; font-family: 'Barlow', sans-serif;
+    font-size: 15px; width: 100%;
+  }
+  .form-field input::placeholder { color: var(--text-muted); }
+
+  /* ===== MESSAGES ===== */
+  .messages-list { display: flex; flex-direction: column; gap: 0; }
+  .msg-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 16px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    cursor: pointer;
+    transition: background 0.15s; border-radius: 8px;
+  }
+  .msg-item:hover { background: rgba(255,255,255,0.04); padding: 16px 8px; }
+  .msg-avatar {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: var(--navy-mid);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0; overflow: hidden;
+  }
+  .msg-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .msg-body { flex: 1; min-width: 0; }
+  .msg-name { font-weight: 600; font-size: 16px; margin-bottom: 2px; }
+  .msg-preview { font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .msg-time { font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
+
+  /* ===== BOTTOM NAV ===== */
+  .bottom-nav {
+    position: sticky; bottom: 0;
+    background: rgba(10,22,40,0.95);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    padding: 10px 0 16px;
+  }
+  .nav-item {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    cursor: pointer; padding: 4px;
+    transition: color 0.2s;
+    color: var(--text-muted);
+    font-size: 11px;
+  }
+  .nav-item.active { color: var(--white); }
+  .nav-icon { font-size: 22px; }
+
+  /* ===== STAND DETAIL ===== */
+  .stand-detail-field {
+    background: #0a0f1e;
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 8px;
+    font-size: 15px;
+  }
+  .stand-detail-field .field-icon {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0;
+  }
+  .docs-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+    margin-bottom: 20px;
+  }
+  .doc-thumb {
+    aspect-ratio: 1; border-radius: 8px;
+    background: var(--blue-card);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.1);
+    font-size: 28px;
+    transition: transform 0.2s;
+  }
+  .doc-thumb:hover { transform: scale(1.04); }
+  .doc-thumb.has-doc { background: #f0f0f0; }
+  .doc-thumb.has-doc img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* ===== UPLOAD ===== */
+  .upload-zone {
+    border: 2px dashed rgba(255,165,0,0.5);
+    border-radius: var(--radius);
+    padding: 48px 24px;
+    text-align: center; cursor: pointer;
+    transition: all 0.2s;
+    background: rgba(255,165,0,0.04);
+  }
+  .upload-zone:hover { border-color: rgba(255,165,0,0.8); background: rgba(255,165,0,0.08); }
+  .upload-zone .plus { font-size: 40px; color: rgba(255,255,255,0.3); margin-bottom: 12px; }
+  .upload-zone .upload-hint { color: rgba(255,165,0,0.7); font-size: 14px; margin-top: 8px; }
+
+  /* ===== SECTION TAG ===== */
+  .section-tag {
+    display: inline-block;
+    background: var(--red);
+    color: white;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+    padding: 3px 10px; border-radius: 4px;
+    margin-bottom: 8px;
+  }
+
+  /* ===== LOGIN PAGE ===== */
+  #login-page {
+    min-height: 100vh;
+    background: radial-gradient(ellipse at 30% 40%, #1a3a7a 0%, #0a1628 60%);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 32px 24px;
+  }
+  #login-page .logo-wrap { text-align: center; margin-bottom: 40px; }
+  .login-card {
+    width: 100%; max-width: 400px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 24px;
+    padding: 32px 28px;
+    backdrop-filter: blur(8px);
+  }
+  .login-avatar {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: var(--navy-mid);
+    margin: 0 auto 20px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px;
+  }
+  .login-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 28px; font-weight: 700;
+    text-align: center; margin-bottom: 24px;
+    letter-spacing: 2px;
+  }
+  .login-field {
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1.5px solid rgba(255,255,255,0.2);
+    padding: 12px 4px; margin-bottom: 16px;
+  }
+  .login-field input {
+    background: transparent; border: none; outline: none;
+    color: white; font-family: 'Barlow', sans-serif;
+    font-size: 15px; width: 100%;
+  }
+  .login-field input::placeholder { color: var(--text-muted); }
+  .login-options {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 28px; font-size: 13px; color: var(--silver);
+  }
+  .remember { display: flex; align-items: center; gap: 6px; }
+  .forgot { color: var(--silver); cursor: pointer; text-decoration: underline; }
+
+  /* ===== REGISTER PAGE ===== */
+  .reg-field {
+    background: var(--navy-mid);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 10px;
+  }
+  .reg-field .fi { font-size: 18px; }
+  .reg-field input {
+    background: transparent; border: none; outline: none;
+    color: white; font-family: 'Barlow', sans-serif;
+    font-size: 15px; width: 100%;
+  }
+  .reg-field input::placeholder { color: var(--text-muted); }
+
+  /* ===== SCROLLBAR ===== */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--navy-mid); border-radius: 2px; }
+
+  /* ===== MODAL OVERLAY ===== */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: rgba(0,0,0,0.7);
+    display: none; align-items: flex-end; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-sheet {
+    background: var(--navy);
+    border-radius: 24px 24px 0 0;
+    padding: 28px 24px 40px;
+    width: 100%; max-width: 600px;
+    animation: sheetUp 0.3s ease;
+  }
+  @keyframes sheetUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  .modal-handle {
+    width: 40px; height: 4px; border-radius: 2px;
+    background: rgba(255,255,255,0.2);
+    margin: 0 auto 20px;
+  }
+
+  /* ===== NOTIFICATIONS ===== */
+  .toast {
+    position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+    background: rgba(10,22,40,0.95);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: white; padding: 12px 24px;
+    border-radius: 30px; font-size: 14px;
+    z-index: 999;
+    opacity: 0; transition: opacity 0.3s;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; }
+
+  /* ===== NUMBERING MODE ===== */
+  .numbering-badge {
+    background: var(--red);
+    color: white;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px; font-weight: 700;
+    padding: 2px 8px; border-radius: 4px;
+    animation: blink 1s infinite;
+  }
+  @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+
+  .confirm-label {
+    background: rgba(255,255,255,0.06);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    font-size: 13px; color: var(--silver);
+    display: flex; gap: 8px; align-items: flex-start;
+    margin-bottom: 16px;
+  }
+  .confirm-label .warn-icon { font-size: 16px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash">
+  <div>
+    <div class="logo-box">
+      <div class="logo-text">CRM<br>HUB</div>
+    </div>
+    <div class="logo-subtitle">Customer Relationship<br>Management Hub<br>By Plotting Engage.</div>
+  </div>
+</div>
+
+<!-- LOGIN PAGE -->
+<div id="login-page" style="display:none;">
+  <div class="logo-wrap">
+    <div class="logo-box" style="display:inline-block;">
+      <div class="logo-text" style="font-size:44px;">CRM<br>HUB</div>
+    </div>
+    <div class="logo-subtitle" style="text-align:center;margin-top:12px;">Customer Relationship<br>Management Hub<br>By Plotting Engage.</div>
+  </div>
+  <div class="login-card">
+    <div class="login-avatar">👤</div>
+    <div class="login-title">ENTRAR</div>
+    <div class="login-field">
+      <span>✉️</span>
+      <input type="email" placeholder="Email ID" id="login-email">
+    </div>
+    <div class="login-field">
+      <span>🔒</span>
+      <input type="password" placeholder="Palavra Pass" id="login-pass">
+    </div>
+    <div class="login-options">
+      <label class="remember">
+        <input type="checkbox" checked> Lembre de mim
+      </label>
+      <span class="forgot">Esqueceu a sua senha</span>
+    </div>
+    <button class="btn btn-navy" onclick="doLogin()">ENTRAR</button>
+    <button class="btn btn-navy" onclick="showRegister()">CRIAR CONTA</button>
+  </div>
+</div>
+
+<!-- REGISTER PAGE -->
+<div id="register-page" style="display:none;">
+  <div style="background:radial-gradient(ellipse at 30% 40%, #1a3a7a 0%, #0a1628 60%); min-height:100vh; padding:32px 24px;">
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:32px;">
+      <div class="logo-box" style="display:inline-block;">
+        <div class="logo-text" style="font-size:36px;">CRM<br>HUB</div>
+      </div>
+      <div class="logo-subtitle">Customer Relationship<br>Management Hub<br>By Plotting Engage.</div>
+    </div>
+    <div style="max-width:400px;margin:0 auto;">
+      <div class="login-title" style="text-align:left;margin-bottom:20px;">CRIAR CONTA</div>
+      <div class="reg-field"><span class="fi">🏢</span><input type="text" placeholder="Nome Empresa"></div>
+      <div class="reg-field"><span class="fi">🏷️</span><input type="text" placeholder="Nif"></div>
+      <div class="reg-field"><span class="fi">👤</span><input type="text" placeholder="Nome Master"></div>
+      <div class="reg-field"><span class="fi">✉️</span><input type="email" placeholder="Email Master"></div>
+      <div class="reg-field"><span class="fi">📞</span><input type="tel" placeholder="Número de telefone"></div>
+      <div class="reg-field"><span class="fi">🔒</span><input type="password" placeholder="Palavra Pass"></div>
+      <div class="reg-field"><span class="fi">🔐</span><input type="password" placeholder="Confirmar Palavra Pass"></div>
+      <div class="reg-field"><span class="fi">📍</span><input type="text" placeholder="País"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px;font-size:13px;color:var(--silver);">
+        <input type="checkbox"> Lembre de mim
+      </div>
+      <button class="btn btn-navy" onclick="showLogin()">REGISTAR</button>
+      <button class="btn btn-navy" onclick="showLogin()" style="background:transparent;border:1px solid rgba(255,255,255,0.2);">← Voltar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+  <!-- Header -->
+  <div class="app-header">
+    <div class="header-logo">
+      <div class="header-logo-box">
+        <div class="header-logo-text">CRM<br>HUB</div>
+      </div>
+      <div class="header-logo-sub">Customer Relationship Management Hub By Plotting Engage.</div>
+    </div>
+    <div class="header-user">
+      <div class="avatar">👨‍💼</div>
+      <div class="user-name">Master</div>
+      <div class="user-dots">
+        <div class="user-dot" onclick="showNomearUser()">+</div>
+        <div class="user-dot" onclick="showNomearUser()">+</div>
+        <div class="user-dot" onclick="showNomearUser()">+</div>
+      </div>
+      <div class="users-label">User Ativos</div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="main">
+
+    <!-- HOME PAGE -->
+    <div class="page active" id="page-home">
+      <div class="page-title">Projectos</div>
+      <div class="projects-grid" id="projects-grid">
+        <div class="project-card has-project" onclick="openProject('FIB')">
+          <div class="card-logo">
+            <div style="font-size:28px;font-weight:800;color:#1a3a7a;text-align:center;line-height:1;">
+              <div style="font-size:12px;color:#e87820;font-weight:700;">🌐 FIB</div>
+              <div style="font-size:10px;color:#666;">Feira Int. Benguela</div>
+            </div>
+          </div>
+          <div class="add-btn">+</div>
+        </div>
+        <div class="project-card" onclick="openCreateProject()">
+          <div class="add-btn">+</div>
+        </div>
+        <div class="project-card" onclick="openCreateProject()">
+          <div class="add-btn">+</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROJECT PAGE -->
+    <div class="page" id="page-project">
+      <div class="page-title">
+        <span class="back-btn" onclick="showPage('home')">‹</span>
+        Projecto
+      </div>
+      <div class="plant-header">
+        <div class="plant-img">
+          <div style="font-size:10px;font-weight:700;color:#1a3a7a;text-align:center;">🌐<br><span style="color:#e87820;font-size:9px;">FIB<br>Benguela</span></div>
+        </div>
+        <div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:2px;">FEIRA INTERNACIONAL DE BENGUELA</div>
+          <div class="plant-name">FIB — Pavilhão 1</div>
+        </div>
+      </div>
+      <div class="page-title" style="font-size:28px;">Plantas</div>
+      <div class="pavillion-title">Pavilhão 1</div>
+
+      <!-- Floor Plan -->
+      <div class="floor-plan-wrapper">
+        <div class="floor-plan" id="floor-plan" style="grid-template-columns: repeat(20, 1fr);"></div>
+      </div>
+
+      <!-- Stands Counter -->
+      <div class="stands-counter">
+        <div class="counter-card free">
+          <div class="counter-num" id="free-count">14</div>
+          <div class="counter-label">LIVRES</div>
+        </div>
+        <div class="counter-card sold">
+          <div class="counter-num" id="sold-count">00</div>
+          <div class="counter-label">VENDIDOS</div>
+        </div>
+      </div>
+
+      <!-- Stand Numbers List -->
+      <div class="stands-list" id="stands-list"></div>
+
+      <!-- Action Buttons -->
+      <div id="action-btns">
+        <button class="btn btn-navy" id="btn-corredor" onclick="setMode('corridor')">CORREDOR</button>
+        <button class="btn btn-navy" id="btn-stand" onclick="setMode('stand')">STAND</button>
+      </div>
+      <div id="btn-numerar-wrap" style="display:none;">
+        <button class="btn btn-red" onclick="startNumbering()">NUMERAR STAND</button>
+      </div>
+      <div id="btn-confirmar-wrap" style="display:none;">
+        <button class="btn btn-navy" onclick="confirmNumbering()">CONFIRMAR</button>
+      </div>
+    </div>
+
+    <!-- NOMEAR USER PAGE -->
+    <div class="page" id="page-nomear">
+      <div class="page-title">
+        <span class="back-btn" onclick="showPage('home')">‹</span>
+        Nomear User
+      </div>
+      <div id="user-slots"></div>
+      <div class="confirm-label">
+        <span class="warn-icon">⚠️</span>
+        <span>Administrador pode Criar, Inserir, Extrair<br>Colaborador só pode inserir e extrair</span>
+      </div>
+    </div>
+
+    <!-- CRIAR PROJECTO PAGE -->
+    <div class="page" id="page-criar">
+      <div class="page-title">
+        <span class="back-btn" onclick="showPage('home')">‹</span>
+        Criar Projecto
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;">
+        <div style="width:80px;height:80px;background:var(--white);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;cursor:pointer;">
+          <div class="add-btn" style="position:absolute;bottom:4px;right:4px;">+</div>
+        </div>
+        <div style="flex:1;">
+          <div class="form-field" style="margin-bottom:6px;">
+            <input type="text" placeholder="Nome" style="background:transparent;border:none;outline:none;color:white;font-size:15px;width:100%;">
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);padding-left:4px;">Nome</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:24px;">
+        <div style="font-size:40px;">📅</div>
+        <div style="flex:1;">
+          <div class="form-field" style="margin-bottom:6px;">
+            <input type="date" style="background:transparent;border:none;outline:none;color:white;font-size:15px;width:100%;">
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);padding-left:4px;">Data</div>
+        </div>
+      </div>
+      <div class="page-title" style="font-size:28px;">Plantas</div>
+      <div class="projects-grid">
+        <div class="project-card"><div class="add-btn">+</div></div>
+        <div class="project-card"><div class="add-btn">+</div></div>
+        <div class="project-card"><div class="add-btn">+</div></div>
+        <div class="project-card"><div class="add-btn">+</div></div>
+      </div>
+      <button class="btn btn-green" onclick="showToast('Projecto criado com sucesso!');showPage('home');">CRIAR PROJECTO</button>
+    </div>
+
+    <!-- STAND DETAIL PAGE -->
+    <div class="page" id="page-stand">
+      <div class="page-title">
+        <span class="back-btn" onclick="showPage('project')">‹</span>
+        <span id="stand-detail-title">STAND 03</span>
+      </div>
+      <div class="pavillion-title">Pavilhão 1</div>
+      <div id="stand-content"></div>
+    </div>
+
+    <!-- MY LIST PAGE -->
+    <div class="page" id="page-list">
+      <div class="page-title">My List</div>
+      <div class="messages-list" id="messages-list"></div>
+    </div>
+
+    <!-- SETTINGS PAGE -->
+    <div class="page" id="page-settings">
+      <div class="page-title">Definições</div>
+      <div class="form-field"><div class="field-icon">👤</div><input type="text" placeholder="Nome de utilizador" value="Master Admin"></div>
+      <div class="form-field"><div class="field-icon">✉️</div><input type="email" placeholder="Email" value="master@empresa.ao"></div>
+      <div class="form-field"><div class="field-icon">📞</div><input type="tel" placeholder="Telefone" value="+244 9XX XXX XXX"></div>
+      <div class="form-field"><div class="field-icon">🏢</div><input type="text" placeholder="Empresa" value="Plotting Engage"></div>
+      <div style="height:20px;"></div>
+      <button class="btn btn-green" onclick="showToast('Definições guardadas!')">GUARDAR</button>
+      <button class="btn btn-navy" onclick="doLogout()">TERMINAR SESSÃO</button>
+    </div>
+
+    <!-- MY ACCOUNT PAGE -->
+    <div class="page" id="page-account">
+      <div class="page-title">A Minha Conta</div>
+      <div style="text-align:center;margin-bottom:28px;">
+        <div class="avatar" style="width:80px;height:80px;font-size:36px;margin:0 auto 12px;">👨‍💼</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:700;">Master Admin</div>
+        <div style="color:var(--text-muted);font-size:14px;">master@empresa.ao</div>
+      </div>
+      <div style="background:var(--blue-card);border-radius:var(--radius);padding:20px;margin-bottom:16px;">
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">EMPRESA</div>
+        <div style="font-weight:600;">Plotting Engage</div>
+      </div>
+      <div style="background:var(--blue-card);border-radius:var(--radius);padding:20px;margin-bottom:16px;">
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">NIF</div>
+        <div style="font-weight:600;">5417305910</div>
+      </div>
+      <div style="background:var(--blue-card);border-radius:var(--radius);padding:20px;margin-bottom:24px;">
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">PAÍS</div>
+        <div style="font-weight:600;">Angola 🇦🇴</div>
+      </div>
+      <button class="btn btn-navy" onclick="showPage('settings')">EDITAR PERFIL</button>
+    </div>
+
+  </div><!-- end main -->
+
+  <!-- Bottom Nav -->
+  <div class="bottom-nav">
+    <div class="nav-item active" id="nav-home" onclick="navTo('home')">
+      <span class="nav-icon">🏠</span>Home
+    </div>
+    <div class="nav-item" id="nav-list" onclick="navTo('list')">
+      <span class="nav-icon">☰</span>My List
+    </div>
+    <div class="nav-item" id="nav-settings" onclick="navTo('settings')">
+      <span class="nav-icon">⚙️</span>Setting
+    </div>
+    <div class="nav-item" id="nav-account" onclick="navTo('account')">
+      <span class="nav-icon">👤</span>My Account
+    </div>
+  </div>
+</div><!-- end app -->
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== STATE =====
+let currentMode = null; // 'corridor' | 'stand'
+let numberingMode = false;
+let numberingCounter = 1;
+let stands = {}; // standId -> { num, sold, company, nif, email, phone, country }
+let gridCells = [];
+const ROWS = 10, COLS = 20;
+
+// Pre-defined layout: 0=empty, 1=stand-area, 2=corridor
+const LAYOUT = [
+  [1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1],
+  [1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1],
+  [1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1],
+  [1,1,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,1,1],
+  [1,1,0,1,1,1,0,0,0,0,0,0,0,1,1,1,0,1,1,1],
+  [1,1,0,1,1,1,0,1,1,1,1,0,0,1,1,1,0,1,1,1],
+  [1,1,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,1,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+];
+
+// Stand groups (cells that belong to the same stand)
+const STAND_GROUPS = [
+  {id:'01', cells:[[0,0],[1,0],[2,0],[3,0]]},
+  {id:'02', cells:[[0,1],[1,1],[2,1],[3,1]]},
+  {id:'03', cells:[[7,0],[7,1],[8,0],[8,1],[9,0],[9,1]]},
+  {id:'04', cells:[[4,1],[5,1],[6,1]]},
+  {id:'05', cells:[[0,2],[0,3],[0,4],[1,2],[1,3],[1,4]]},
+  {id:'06', cells:[[0,5],[0,6],[1,5],[1,6]]},
+  {id:'07', cells:[[4,5],[4,6],[4,7],[5,5],[5,6]]},
+  {id:'08', cells:[[7,2],[8,2],[9,2]]},
+  {id:'09', cells:[[7,3],[8,3],[9,3]]},
+  {id:'10', cells:[[4,8],[4,9],[5,8],[5,9]]},
+  {id:'11', cells:[[0,17],[0,18],[0,19],[1,17]]},
+  {id:'12', cells:[[1,18],[1,19],[2,18],[2,19]]},
+  {id:'13', cells:[[7,4],[8,4],[9,4]]},
+  {id:'14', cells:[[2,17],[3,17],[4,17]]},
+];
+
+// Sample data
+const SAMPLE_STANDS = {
+  '05': { sold:true, company:'Chevron', nif:'5417305910', email:'joao.ezequiel@chevron.com', phone:'927 300 968', country:'Angola' },
+};
+
+const MESSAGES = [
+  { name:'Marlene Pinho', action:'Criou Planta FiB Pavilhão 1', time:'12:00', emoji:'👩🏿' },
+  { name:'Jacinto Magalhães', action:'Actualizou stand 05', time:'12:00', emoji:'👨🏿' },
+  { name:'Dalas Pinto', action:'Vendeu stand 08', time:'12:00', emoji:'👨🏾' },
+  { name:'Gabriel Sousa', action:'Registou stand 03 — Empresa ABC', time:'12:00', emoji:'👨🏾‍💼' },
+  { name:'User Name', action:'Lorem ipsum dolor sit amet, conse adipiscing elit', time:'12:00', emoji:'👤' },
+  { name:'User Name', action:'Lorem ipsum dolor sit amet, conse adipiscing elit', time:'11:45', emoji:'👤' },
+];
+
+// ===== INIT =====
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    document.getElementById('splash').classList.add('hidden');
+    document.getElementById('login-page').style.display = 'flex';
+  }, 2200);
+
+  // Initialize stands
+  Object.assign(stands, SAMPLE_STANDS);
+  buildMessages();
+  buildUserSlots();
+});
+
+// ===== AUTH =====
+function doLogin() {
+  const email = document.getElementById('login-email').value;
+  const pass = document.getElementById('login-pass').value;
+  if (!email && !pass) { showToast('Entre com as suas credenciais'); return; }
+  document.getElementById('login-page').style.display = 'none';
+  const app = document.getElementById('app');
+  app.classList.add('visible');
+  buildFloorPlan();
+  updateStandsList();
+}
+
+function doLogout() {
+  document.getElementById('app').classList.remove('visible');
+  document.getElementById('login-page').style.display = 'flex';
+  showPage('home');
+}
+
+function showRegister() {
+  document.getElementById('login-page').style.display = 'none';
+  document.getElementById('register-page').style.display = 'block';
+}
+function showLogin() {
+  document.getElementById('register-page').style.display = 'none';
+  document.getElementById('login-page').style.display = 'flex';
+}
+
+// ===== NAVIGATION =====
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const el = document.getElementById('page-' + name);
+  if (el) el.classList.add('active');
+}
+
+function navTo(name) {
+  showPage(name);
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const navEl = document.getElementById('nav-' + name);
+  if (navEl) navEl.classList.add('active');
+}
+
+function openProject(name) {
+  showPage('project');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+}
+
+function openCreateProject() { showPage('criar'); }
+function showNomearUser() { showPage('nomear'); }
+
+// ===== FLOOR PLAN =====
+function buildFloorPlan() {
+  const fp = document.getElementById('floor-plan');
+  fp.innerHTML = '';
+  gridCells = [];
+
+  // Build cell-to-stand map
+  const cellStandMap = {};
+  STAND_GROUPS.forEach(g => {
+    g.cells.forEach(([r,c]) => { cellStandMap[`${r},${c}`] = g.id; });
+  });
+
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'floor-cell';
+      const layout = LAYOUT[r]?.[c] ?? 1;
+      const standId = cellStandMap[`${r},${c}`];
+
+      if (layout === 0) {
+        cell.classList.add('corridor');
+      } else if (standId) {
+        const standData = stands[standId];
+        cell.classList.add(standData?.sold ? 'stand-sold' : 'stand-free');
+        cell.dataset.standId = standId;
+        // Show number only on first cell of group
+        const group = STAND_GROUPS.find(g => g.id === standId);
+        if (group && group.cells[0][0] === r && group.cells[0][1] === c) {
+          cell.textContent = standId;
+        }
+        cell.addEventListener('click', () => handleCellClick(cell, standId, r, c));
+        cell.addEventListener('mouseenter', () => showStandTooltip(cell, standId));
+        cell.addEventListener('mouseleave', removeTooltips);
+      } else {
+        cell.classList.add('empty');
+      }
+
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+      fp.appendChild(cell);
+      gridCells.push({ el: cell, row: r, col: c, standId });
+    }
+  }
+}
+
+function handleCellClick(cell, standId, r, c) {
+  removeTooltips();
+  if (numberingMode) {
+    if (cell.classList.contains('stand-free') || cell.classList.contains('stand-sold')) {
+      cell.textContent = String(numberingCounter).padStart(2,'0');
+      cell.dataset.customNum = numberingCounter;
+      numberingCounter++;
+    }
+    return;
+  }
+  if (currentMode === 'corridor') {
+    cell.classList.remove('stand-free','stand-sold','empty');
+    cell.classList.add('corridor');
+    cell.textContent = '';
+    cell.dataset.standId = '';
+    updateCounts();
+    return;
+  }
+  if (currentMode === 'stand') {
+    if (cell.classList.contains('empty') || cell.classList.contains('corridor')) {
+      cell.classList.remove('corridor','empty');
+      cell.classList.add('stand-free');
+      const newId = String(Object.keys(stands).length + 1).padStart(2,'0');
+      cell.dataset.standId = newId;
+      stands[newId] = { sold: false };
+    }
+    updateCounts();
+    checkShowNumerar();
+    return;
+  }
+  // View mode — open stand detail
+  if (standId) openStandDetail(standId);
+}
+
+function showStandTooltip(cell, standId) {
+  removeTooltips();
+  const data = stands[standId];
+  if (!data) return;
+  const tip = document.createElement('div');
+  tip.className = 'tooltip';
+  tip.innerHTML = `<div class="tip-num">STAND ${standId}</div>
+    <div class="tip-co">${data.sold ? data.company || 'Vendido' : 'Disponível'}</div>`;
+  cell.style.position = 'relative';
+  cell.appendChild(tip);
+}
+function removeTooltips() {
+  document.querySelectorAll('.tooltip').forEach(t => t.remove());
+}
+
+function checkShowNumerar() {
+  const hasFreeStands = document.querySelectorAll('.floor-cell.stand-free').length > 0;
+  document.getElementById('btn-numerar-wrap').style.display = hasFreeStands ? 'block' : 'none';
+}
+
+// ===== MODES =====
+function setMode(mode) {
+  currentMode = currentMode === mode ? null : mode;
+  document.getElementById('btn-corredor').style.background = currentMode==='corridor' ? '#c01020' : '';
+  document.getElementById('btn-stand').style.background = currentMode==='stand' ? '#2ecc5a' : '';
+  checkShowNumerar();
+  showToast(currentMode ? `Modo: ${currentMode==='corridor'?'CORREDOR':'STAND'} — clique nas células` : 'Modo de visualização');
+}
+
+function startNumbering() {
+  numberingMode = true;
+  numberingCounter = 1;
+  document.getElementById('btn-numerar-wrap').style.display = 'none';
+  document.getElementById('btn-confirmar-wrap').style.display = 'block';
+  document.getElementById('action-btns').style.display = 'none';
+  showToast('Clique nos stands para numerar');
+}
+
+function confirmNumbering() {
+  numberingMode = false;
+  document.getElementById('btn-confirmar-wrap').style.display = 'none';
+  document.getElementById('action-btns').style.display = 'block';
+  updateStandsList();
+  updateCounts();
+  showToast('Numeração confirmada!');
+}
+
+// ===== STANDS LIST =====
+function updateStandsList() {
+  const el = document.getElementById('stands-list');
+  el.innerHTML = '';
+  STAND_GROUPS.forEach(g => {
+    const chip = document.createElement('div');
+    chip.className = 'stand-chip' + (stands[g.id]?.sold ? ' sold' : '');
+    chip.textContent = g.id;
+    chip.onclick = () => openStandDetail(g.id);
+    el.appendChild(chip);
+  });
+  updateCounts();
+}
+
+function updateCounts() {
+  const free = document.querySelectorAll('.floor-cell.stand-free').length;
+  const sold = document.querySelectorAll('.floor-cell.stand-sold').length;
+  document.getElementById('free-count').textContent = String(free).padStart(2,'0');
+  document.getElementById('sold-count').textContent = String(sold).padStart(2,'0');
+}
+
+// ===== STAND DETAIL =====
+function openStandDetail(standId) {
+  const data = stands[standId];
+  const el = document.getElementById('stand-content');
+  document.getElementById('stand-detail-title').textContent = `STAND ${standId}`;
+
+  if (data?.sold) {
+    el.innerHTML = `
+      <div class="stand-detail-field"><div class="field-icon">🏢</div>${data.company||'—'}</div>
+      <div class="stand-detail-field"><div class="field-icon">🏷️</div>Nif: ${data.nif||'—'}</div>
+      <div class="stand-detail-field"><div class="field-icon">✉️</div>${data.email||'—'}</div>
+      <div class="stand-detail-field"><div class="field-icon">📞</div>${data.phone||'—'}</div>
+      <div class="stand-detail-field"><div class="field-icon">📍</div>${data.country||'—'}</div>
+      <div style="margin:16px 0;">
+        <div style="width:120px;height:80px;background:#f0f0f0;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#333;margin:0 auto 8px;cursor:pointer;" onclick="showUpload('${standId}')">
+          📄 Recibo PAGO
+        </div>
+      </div>
+      <button class="btn btn-navy" onclick="showUpload('${standId}')">VER ANEXOS</button>
+      <button class="btn btn-navy" style="background:rgba(232,25,44,0.2);color:var(--red);" onclick="openStandForm('${standId}')">EDITAR</button>
+    `;
+  } else {
+    el.innerHTML = `
+      <div style="margin-bottom:16px;padding:12px;background:rgba(46,204,90,0.1);border:1px solid rgba(46,204,90,0.3);border-radius:10px;font-size:14px;color:var(--green);">
+        ✅ Stand disponível — clique em REGISTAR para vender
+      </div>
+      <button class="btn btn-green" onclick="openStandForm('${standId}')">REGISTAR CLIENTE</button>
+    `;
+  }
+  showPage('stand');
+}
+
+function openStandForm(standId) {
+  const el = document.getElementById('stand-content');
+  document.getElementById('stand-detail-title').textContent = `STAND ${standId}`;
+  const data = stands[standId] || {};
+  el.innerHTML = `
+    <div class="form-field"><div class="field-icon">🏢</div><input type="text" placeholder="Nome Empresa" id="f-company" value="${data.company||''}"></div>
+    <div class="form-field"><div class="field-icon">🏷️</div><input type="text" placeholder="Nif" id="f-nif" value="${data.nif||''}"></div>
+    <div class="form-field"><div class="field-icon">✉️</div><input type="email" placeholder="Email Master" id="f-email" value="${data.email||''}"></div>
+    <div class="form-field"><div class="field-icon">📞</div><input type="tel" placeholder="Número de telefone" id="f-phone" value="${data.phone||''}"></div>
+    <div class="form-field"><div class="field-icon">📍</div><input type="text" placeholder="País" id="f-country" value="${data.country||''}"></div>
+    <button class="btn btn-green" onclick="saveStand('${standId}')">REGISTAR</button>
+    <button class="btn btn-navy" onclick="showUpload('${standId}')">ANEXAR</button>
+  `;
+}
+
+function saveStand(standId) {
+  stands[standId] = {
+    sold: true,
+    company: document.getElementById('f-company').value,
+    nif: document.getElementById('f-nif').value,
+    email: document.getElementById('f-email').value,
+    phone: document.getElementById('f-phone').value,
+    country: document.getElementById('f-country').value,
+  };
+  // Update cell colors
+  document.querySelectorAll(`[data-stand-id="${standId}"]`).forEach(cell => {
+    cell.classList.remove('stand-free');
+    cell.classList.add('stand-sold');
+  });
+  updateCounts();
+  updateStandsList();
+  showToast(`Stand ${standId} registado com sucesso!`);
+  openStandDetail(standId);
+  // Add message
+  MESSAGES.unshift({ name:'Master Admin', action:`Vendeu stand ${standId} — ${stands[standId].company}`, time: new Date().toLocaleTimeString('pt',{hour:'2-digit',minute:'2-digit'}), emoji:'👨‍💼' });
+  buildMessages();
+}
+
+function showUpload(standId) {
+  const el = document.getElementById('stand-content');
+  el.innerHTML = `
+    <div class="stand-detail-field" style="margin-bottom:16px;">
+      <div class="field-icon">🏢</div>${stands[standId]?.company || 'Stand '+standId}
+    </div>
+    <div class="upload-zone" onclick="showToast('Funcionalidade disponível na app móvel')">
+      <div class="plus">+</div>
+      <div style="font-size:15px;color:rgba(255,255,255,0.5);">Arraste ficheiros aqui</div>
+      <div class="upload-hint">JPG, PNG ou PDF (máx. 20MB cada)</div>
+    </div>
+    <div class="docs-grid" style="margin-top:16px;">
+      <div class="doc-thumb has-doc" style="background:#e0e0e0;font-size:11px;color:#333;padding:4px;">📄 Recibo</div>
+      <div class="doc-thumb" onclick="showToast('Adicionar documento')">+</div>
+      <div class="doc-thumb" onclick="showToast('Adicionar documento')">+</div>
+    </div>
+    <button class="btn btn-navy" style="margin-top:8px;" onclick="openStandDetail('${standId}')">← Voltar</button>
+  `;
+}
+
+// ===== MESSAGES =====
+function buildMessages() {
+  const el = document.getElementById('messages-list');
+  if (!el) return;
+  el.innerHTML = '';
+  MESSAGES.forEach(m => {
+    const item = document.createElement('div');
+    item.className = 'msg-item';
+    item.innerHTML = `
+      <div class="msg-avatar">${m.emoji}</div>
+      <div class="msg-body">
+        <div class="msg-name">${m.name}</div>
+        <div class="msg-preview">${m.action}</div>
+      </div>
+      <div class="msg-time">${m.time}</div>
+    `;
+    el.appendChild(item);
+  });
+}
+
+// ===== USER SLOTS =====
+function buildUserSlots() {
+  const el = document.getElementById('user-slots');
+  if (!el) return;
+  const users = [
+    { email:'marlene@empresa.ao', role:'Administrador' },
+    { email:'jacinto@empresa.ao', role:'Administrador' },
+    { email:'', role:'Administrador' },
+  ];
+  el.innerHTML = '';
+  users.forEach((u,i) => {
+    el.innerHTML += `
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+        <div style="width:44px;height:44px;border-radius:50%;background:var(--navy-mid);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">👤</div>
+        <div style="flex:1;">
+          <div class="form-field" style="margin-bottom:4px;">
+            <input type="email" placeholder="Email" value="${u.email}" style="background:transparent;border:none;outline:none;color:white;font-size:14px;width:100%;">
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted);">
+            <input type="checkbox" ${i<2?'checked':''}>
+            <span>${u.role}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+}
+
+// ===== TOAST =====
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
