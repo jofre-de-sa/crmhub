@@ -866,6 +866,11 @@
 <div class="toast" id="toast"></div>
 
 <script>
+
+  const SUPABASE_URL = 'https://xxxxxxxxxxxx.supabase.co'
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+  
 // ===== STATE =====
 let currentMode = null; // 'corridor' | 'stand'
 let numberingMode = false;
