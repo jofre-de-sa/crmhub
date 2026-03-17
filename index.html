@@ -640,7 +640,7 @@
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px;font-size:13px;color:var(--silver);">
         <input type="checkbox"> Lembre de mim
       </div>
-      <button class="btn btn-navy" onclick="showLogin()">REGISTAR</button>
+      <button class="btn btn-navy" onclick="doRegisto()">REGISTAR</button>
       <button class="btn btn-navy" onclick="showLogin()" style="background:transparent;border:1px solid rgba(255,255,255,0.2);">← Voltar</button>
     </div>
   </div>
@@ -940,26 +940,62 @@ window.addEventListener('load', () => {
 });
 
 // ===== AUTH =====
-function doLogin() {
-  const email = document.getElementById('login-email').value;
-  const pass = document.getElementById('login-pass').value;
-  if (!email && !pass) { showToast('Entre com as suas credenciais'); return; }
-  document.getElementById('login-page').style.display = 'none';
-  const app = document.getElementById('app');
-  app.classList.add('visible');
-  buildFloorPlan();
-  updateStandsList();
+async function doLogin() {
+  const email = document.getElementById('login-email').value
+  const pass  = document.getElementById('login-pass').value
+  if (!email || !pass) { showToast('Preenche email e senha'); return }
+
+  const { data, error } = await db.auth.signInWithPassword({ email, password: pass })
+  if (error) { showToast('Email ou senha incorretos'); return }
+
+  document.getElementById('login-page').style.display = 'none'
+  document.getElementById('app').classList.add('visible')
+  await carregarProjectos()
+  buildFloorPlan()
+  updateStandsList()
 }
 
-function doLogout() {
-  document.getElementById('app').classList.remove('visible');
-  document.getElementById('login-page').style.display = 'flex';
-  showPage('home');
+async function doLogout() {
+  await db.auth.signOut()
+  document.getElementById('app').classList.remove('visible')
+  document.getElementById('login-page').style.display = 'flex'
+  showPage('home')
 }
 
-function showRegister() {
-  document.getElementById('login-page').style.display = 'none';
-  document.getElementById('register-page').style.display = 'block';
+async function showRegister() {
+  document.getElementById('login-page').style.display = 'none'
+  document.getElementById('register-page').style.display = 'block'
+}
+
+  async function doRegisto() {
+  const nome    = document.querySelector('#register-page input[placeholder="Nome Empresa"]').value
+  const nif     = document.querySelector('#register-page input[placeholder="Nif"]').value
+  const email   = document.querySelector('#register-page input[placeholder="Email Master"]').value
+  const pass    = document.querySelector('#register-page input[placeholder="Palavra Pass"]').value
+  const pais    = document.querySelector('#register-page input[placeholder="País"]').value
+
+  if (!nome || !email || !pass) { showToast('Preenche todos os campos'); return }
+
+  // Criar utilizador no Supabase Auth
+  const { data: authData, error: authErr } = await db.auth.signUp({ email, password: pass })
+  if (authErr) { showToast(authErr.message); return }
+
+  // Criar empresa
+  const { data: empresa } = await db
+    .from('empresas')
+    .insert({ nome, nif, pais })
+    .select().single()
+
+  // Criar utilizador master
+  await db.from('utilizadores').insert({
+    id: authData.user.id,
+    empresa_id: empresa.id,
+    email, nome: 'Master Admin',
+    role: 'master'
+  })
+
+  showToast('Conta criada! Já podes entrar.')
+  showLogin()
 }
 function showLogin() {
   document.getElementById('register-page').style.display = 'none';
@@ -1182,29 +1218,66 @@ function openStandForm(standId) {
   `;
 }
 
-function saveStand(standId) {
-  stands[standId] = {
-    sold: true,
-    company: document.getElementById('f-company').value,
-    nif: document.getElementById('f-nif').value,
-    email: document.getElementById('f-email').value,
-    phone: document.getElementById('f-phone').value,
-    country: document.getElementById('f-country').value,
-  };
-  // Update cell colors
+async function saveStand(standId) {
+  const empresa = document.getElementById('f-company').value
+  const nif     = document.getElementById('f-nif').value
+  const email   = document.getElementById('f-email').value
+  const phone   = document.getElementById('f-phone').value
+  const country = document.getElementById('f-country').value
+
+  // Criar cliente na BD
+  const { data: cliente, error: errCliente } = await db
+    .from('clientes')
+    .insert({ empresa_nome: empresa, nif, email, telefone: phone, pais: country })
+    .select().single()
+
+  if (errCliente) { showToast('Erro ao guardar cliente'); return }
+
+  // Atualizar stand na BD
+  await db.from('stands')
+    .update({ vendido: true, cliente_id: cliente.id })
+    .eq('numero', standId)
+
+  // Registar actividade
+  await db.from('actividade').insert({
+    accao: `Vendeu stand ${standId} — ${empresa}`,
+    entidade: 'stand'
+  })
+
+  // Atualizar localmente
+  stands[standId] = { sold: true, company: empresa, nif, email, phone, country }
   document.querySelectorAll(`[data-stand-id="${standId}"]`).forEach(cell => {
-    cell.classList.remove('stand-free');
-    cell.classList.add('stand-sold');
-  });
-  updateCounts();
-  updateStandsList();
-  showToast(`Stand ${standId} registado com sucesso!`);
-  openStandDetail(standId);
-  // Add message
-  MESSAGES.unshift({ name:'Master Admin', action:`Vendeu stand ${standId} — ${stands[standId].company}`, time: new Date().toLocaleTimeString('pt',{hour:'2-digit',minute:'2-digit'}), emoji:'👨‍💼' });
-  buildMessages();
+    cell.classList.remove('stand-free')
+    cell.classList.add('stand-sold')
+  })
+  updateCounts()
+  updateStandsList()
+  showToast(`Stand ${standId} registado!`)
+  openStandDetail(standId)
+}
+  /*FUNCAO PARA CARREGAR OS PROJECTOS*/
+async function carregarProjectos() {
+  const { data, error } = await db
+    .from('projectos')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (error || !data?.length) return
+
+  const grid = document.getElementById('projects-grid')
+  grid.innerHTML = ''
+  data.forEach(p => {
+    grid.innerHTML += `
+      <div class="project-card has-project" onclick="openProject('${p.id}')">
+        <div class="card-logo" style="font-size:12px;color:#1a3a7a;text-align:center;padding:8px;">${p.nome}</div>
+        <div class="add-btn">+</div>
+      </div>`
+  })
+  grid.innerHTML += `<div class="project-card" onclick="openCreateProject()">
+    <div class="add-btn">+</div></div>`
 }
 
+  
 function showUpload(standId) {
   const el = document.getElementById('stand-content');
   el.innerHTML = `
