@@ -932,11 +932,7 @@ window.addEventListener('load', () => {
     document.getElementById('splash').classList.add('hidden');
     document.getElementById('login-page').style.display = 'flex';
   }, 2200);
-
-  // Initialize stands
-  Object.assign(stands, SAMPLE_STANDS);
-  buildMessages();
-  buildUserSlots();
+  // NÃO chamar buildUserSlots aqui — só após login
 });
 
 // ===== AUTH =====
@@ -950,9 +946,11 @@ async function doLogin() {
 
   document.getElementById('login-page').style.display = 'none'
   document.getElementById('app').classList.add('visible')
+  await carregarStandsDaBD()
   await carregarProjectos()
   buildFloorPlan()
   updateStandsList()
+  await carregarActividade()
 }
 
 async function doLogout() {
@@ -967,34 +965,41 @@ async function showRegister() {
   document.getElementById('register-page').style.display = 'block'
 }
 
-  async function doRegisto() {
-  const nome    = document.querySelector('#register-page input[placeholder="Nome Empresa"]').value
-  const nif     = document.querySelector('#register-page input[placeholder="Nif"]').value
-  const email   = document.querySelector('#register-page input[placeholder="Email Master"]').value
-  const pass    = document.querySelector('#register-page input[placeholder="Palavra Pass"]').value
-  const pais    = document.querySelector('#register-page input[placeholder="País"]').value
+ async function doRegisto() {
+  const nome  = document.querySelector('#register-page input[placeholder="Nome Empresa"]').value
+  const nif   = document.querySelector('#register-page input[placeholder="Nif"]').value
+  const email = document.querySelector('#register-page input[placeholder="Email Master"]').value
+  const pass  = document.querySelector('#register-page input[placeholder="Palavra Pass"]').value
+  const pais  = document.querySelector('#register-page input[placeholder="País"]').value
 
-  if (!nome || !email || !pass) { showToast('Preenche todos os campos'); return }
+  if (!nome || !email || !pass) { showToast('Preenche todos os campos obrigatórios'); return }
 
-  // Criar utilizador no Supabase Auth
+  showToast('A criar conta...')
+
+  // 1. Criar empresa primeiro
+  const { data: empresa, error: errEmpresa } = await db
+    .from('empresas').insert({ nome, nif, pais }).select().single()
+
+  if (errEmpresa) {
+    showToast('Erro: ' + (errEmpresa.message.includes('unique') ? 'NIF já registado' : errEmpresa.message))
+    return
+  }
+
+  // 2. Criar utilizador no Auth
   const { data: authData, error: authErr } = await db.auth.signUp({ email, password: pass })
-  if (authErr) { showToast(authErr.message); return }
+  if (authErr) { showToast('Erro auth: ' + authErr.message); return }
 
-  // Criar empresa
-  const { data: empresa } = await db
-    .from('empresas')
-    .insert({ nome, nif, pais })
-    .select().single()
-
-  // Criar utilizador master
-  await db.from('utilizadores').insert({
+  // 3. Criar utilizador master na tabela
+  const { error: errUser } = await db.from('utilizadores').insert({
     id: authData.user.id,
     empresa_id: empresa.id,
-    email, nome: 'Master Admin',
-    role: 'master'
+    email, nome: nome + ' (Master)',
+    role: 'master', ativo: true
   })
 
-  showToast('Conta criada! Já podes entrar.')
+  if (errUser) { showToast('Erro ao criar utilizador: ' + errUser.message); return }
+
+  showToast('Conta criada com sucesso! Já podes entrar.')
   showLogin()
 }
 function showLogin() {
@@ -1228,6 +1233,67 @@ async function saveStand(standId) {
   const phone   = document.getElementById('f-phone').value
   const country = document.getElementById('f-country').value
 
+  if (!empresa) { showToast('Preenche o nome da empresa'); return }
+
+  // 1. Obter empresa_id do utilizador actual
+  const { data: session } = await db.auth.getSession()
+  const userId = session?.session?.user?.id
+  const { data: userInfo } = await db.from('utilizadores').select('empresa_id, nome').eq('id', userId).single()
+  const empresaId = userInfo?.empresa_id
+
+  // 2. Criar cliente
+  const { data: cliente, error: errCliente } = await db
+    .from('clientes')
+    .insert({ empresa_nome: empresa, nif, email, telefone: phone, pais: country })
+    .select().single()
+
+  if (errCliente) { showToast('Erro ao guardar cliente: ' + errCliente.message); return }
+
+  // 3. Verificar se stand existe na BD, se não inserir
+  const { data: standExiste } = await db.from('stands').select('id').eq('numero', standId).maybeSingle()
+
+  if (!standExiste) {
+    const { data: planta } = await db.from('plantas').select('id').limit(1).single()
+    await db.from('stands').insert({
+      planta_id: planta?.id,
+      numero: standId,
+      tipo: 'stand',
+      vendido: true,
+      cliente_id: cliente.id,
+      celulas: STAND_GROUPS.find(g => g.id === standId)?.cells || []
+    })
+  } else {
+    await db.from('stands').update({ vendido: true, cliente_id: cliente.id }).eq('numero', standId)
+  }
+
+  // 4. Registar actividade com empresa_id
+  if (empresaId) {
+    await db.from('actividade').insert({
+      empresa_id: empresaId,
+      utilizador_nome: userInfo?.nome || 'Admin',
+      accao: `Vendeu stand ${standId} — ${empresa}`,
+      entidade: 'stand'
+    })
+  }
+
+  // 5. Actualizar localmente
+  stands[standId] = { sold: true, company: empresa, nif, email, phone, country }
+  document.querySelectorAll(`[data-stand-id="${standId}"]`).forEach(cell => {
+    cell.classList.remove('stand-free')
+    cell.classList.add('stand-sold')
+  })
+  updateCounts()
+  updateStandsList()
+  await carregarActividade()
+  showToast(`Stand ${standId} registado com sucesso!`)
+  openStandDetail(standId)
+}
+  const empresa = document.getElementById('f-company').value
+  const nif     = document.getElementById('f-nif').value
+  const email   = document.getElementById('f-email').value
+  const phone   = document.getElementById('f-phone').value
+  const country = document.getElementById('f-country').value
+
   // Criar cliente na BD
   const { data: cliente, error: errCliente } = await db
     .from('clientes')
@@ -1258,6 +1324,49 @@ async function saveStand(standId) {
   showToast(`Stand ${standId} registado!`)
   openStandDetail(standId)
 }
+
+async function carregarStandsDaBD() {
+  const { data, error } = await db.from('stands').select('*, clientes(*)')
+  if (error || !data) return
+  data.forEach(s => {
+    if (s.vendido && s.clientes) {
+      stands[s.numero] = {
+        sold: true,
+        company: s.clientes.empresa_nome,
+        nif: s.clientes.nif,
+        email: s.clientes.email,
+        phone: s.clientes.telefone,
+        country: s.clientes.pais
+      }
+    }
+  })
+}
+
+async function carregarActividade() {
+  const { data } = await db
+    .from('actividade')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(20)
+  if (!data) return
+  const el = document.getElementById('messages-list')
+  if (!el) return
+  el.innerHTML = ''
+  data.forEach(m => {
+    const item = document.createElement('div')
+    item.className = 'msg-item'
+    item.innerHTML = `
+      <div class="msg-avatar">👤</div>
+      <div class="msg-body">
+        <div class="msg-name">${m.utilizador_nome || 'Sistema'}</div>
+        <div class="msg-preview">${m.accao}</div>
+      </div>
+      <div class="msg-time">${new Date(m.created_at).toLocaleTimeString('pt',{hour:'2-digit',minute:'2-digit'})}</div>
+    `
+    el.appendChild(item)
+  })
+}
+
   /*FUNCAO PARA CARREGAR OS PROJECTOS*/
 async function carregarProjectos() {
   const { data, error } = await db
