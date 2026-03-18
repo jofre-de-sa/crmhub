@@ -1288,42 +1288,7 @@ async function saveStand(standId) {
   showToast(`Stand ${standId} registado com sucesso!`)
   openStandDetail(standId)
 }
-  const empresa = document.getElementById('f-company').value
-  const nif     = document.getElementById('f-nif').value
-  const email   = document.getElementById('f-email').value
-  const phone   = document.getElementById('f-phone').value
-  const country = document.getElementById('f-country').value
 
-  // Criar cliente na BD
-  const { data: cliente, error: errCliente } = await db
-    .from('clientes')
-    .insert({ empresa_nome: empresa, nif, email, telefone: phone, pais: country })
-    .select().single()
-
-  if (errCliente) { showToast('Erro ao guardar cliente'); return }
-
-  // Atualizar stand na BD
-  await db.from('stands')
-    .update({ vendido: true, cliente_id: cliente.id })
-    .eq('numero', standId)
-
-  // Registar actividade
-  await db.from('actividade').insert({
-    accao: `Vendeu stand ${standId} — ${empresa}`,
-    entidade: 'stand'
-  })
-
-  // Atualizar localmente
-  stands[standId] = { sold: true, company: empresa, nif, email, phone, country }
-  document.querySelectorAll(`[data-stand-id="${standId}"]`).forEach(cell => {
-    cell.classList.remove('stand-free')
-    cell.classList.add('stand-sold')
-  })
-  updateCounts()
-  updateStandsList()
-  showToast(`Stand ${standId} registado!`)
-  openStandDetail(standId)
-}
 
 async function carregarStandsDaBD() {
   const { data, error } = await db.from('stands').select('*, clientes(*)')
